@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: #0a0f1e;
+    color: #f1f5f9;
+    font-family: 'DM Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Syne', sans-serif;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0a0f1e;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+  }
+
+  input, textarea, select {
+    font-family: 'DM Sans', sans-serif;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-surface/80 backdrop-blur-xl border border-border rounded-2xl;
+  }
+
+  .glass-card-elevated {
+    @apply bg-elevated/90 backdrop-blur-xl border border-border rounded-2xl;
+  }
+
+  .gradient-border {
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(16, 185, 129, 0.1));
+    border: 1px solid rgba(14, 165, 233, 0.2);
+  }
+
+  .mesh-bg {
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(14, 165, 233, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(16, 185, 129, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 80%, rgba(245, 158, 11, 0.04) 0%, transparent 50%),
+      #0a0f1e;
+  }
+
+  .input-field {
+    @apply w-full bg-base border border-border rounded-xl px-4 py-3 text-text-primary placeholder-text-muted
+           focus:outline-none focus:border-accent-teal focus:ring-1 focus:ring-accent-teal/30
+           transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-accent-teal hover:bg-accent-teal/90 text-white font-medium px-6 py-2.5 rounded-xl
+           transition-all duration-200 flex items-center justify-center gap-2
+           shadow-lg shadow-accent-teal/20 hover:shadow-accent-teal/30
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-surface hover:bg-elevated text-text-primary border border-border font-medium px-6 py-2.5 rounded-xl
+           transition-all duration-200 flex items-center justify-center gap-2
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply bg-accent-rose/10 hover:bg-accent-rose/20 text-accent-rose border border-accent-rose/30 font-medium px-6 py-2.5 rounded-xl
+           transition-all duration-200 flex items-center justify-center gap-2
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-teal {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-teal/10 text-accent-teal border border-accent-teal/20;
+  }
+
+  .badge-mint {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-mint/10 text-accent-mint border border-accent-mint/20;
+  }
+
+  .badge-amber {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-amber/10 text-accent-amber border border-accent-amber/20;
+  }
+
+  .badge-rose {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent-rose/10 text-accent-rose border border-accent-rose/20;
+  }
+
+  .stat-card {
+    @apply bg-surface/80 backdrop-blur-xl border border-border rounded-2xl p-6 relative overflow-hidden hover:border-accent-teal/30 transition-all duration-300;
+  }
+
+  .table-row {
+    @apply border-b border-border hover:bg-elevated/50 transition-colors duration-150;
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-text-muted hover:text-text-primary
+           hover:bg-elevated transition-all duration-200 text-sm font-medium;
+  }
+
+  .sidebar-link-active {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-accent-teal bg-accent-teal/10
+           border border-accent-teal/20 text-sm font-medium;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-accent-teal to-accent-mint bg-clip-text text-transparent;
+  }
+
+  .animate-count-up {
+    animation: countUp 1s ease-out forwards;
+  }
+}
