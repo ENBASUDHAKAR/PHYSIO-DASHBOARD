@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -10,7 +10,9 @@ import {
   Bell,
   ChevronLeft,
   Activity,
+  User,
 } from 'lucide-react';
+import { useDoctorProfile } from '../../hooks/useDoctorProfile';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -29,6 +31,7 @@ const navItems = [
 
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onMobileClose }) => {
   const location = useLocation();
+  const { data: profile } = useDoctorProfile();
 
   return (
     <motion.aside
@@ -89,6 +92,46 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onMobileC
         })}
       </nav>
 
+      {/* Doctor Profile Link */}
+      <div className="px-3 pb-1">
+        <Link
+          to="/profile"
+          onClick={onMobileClose}
+          className={`flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200 group ${
+            location.pathname === '/profile'
+              ? 'bg-sky-500/10 border border-sky-500/20'
+              : 'hover:bg-slate-700/50 border border-transparent hover:border-slate-600/40'
+          }`}
+          title={collapsed ? 'Doctor Profile' : undefined}
+        >
+          <div className="w-10 h-10 rounded-xl bg-slate-700 overflow-hidden border-2 border-sky-500/40 flex-shrink-0 relative flex items-center justify-center">
+            {profile?.photo_url ? (
+              <img src={profile.photo_url} className="w-full h-full object-cover" alt="Dr. Karthik" />
+            ) : (
+              <User className="w-5 h-5 text-slate-400" />
+            )}
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-slate-800" />
+          </div>
+          <AnimatePresence>
+            {!collapsed && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="min-w-0 flex-1"
+              >
+                <p className="text-sm font-semibold text-white truncate">
+                  {profile?.full_name || 'Dr. Karthik'}
+                </p>
+                <p className="text-xs text-slate-400 truncate">
+                  {profile?.qualification || 'BPT'} · Physiotherapist
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Link>
+      </div>
+
       {/* Collapse Toggle */}
       <div className="p-3 border-t border-border">
         <button
@@ -103,3 +146,4 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle, onMobileC
     </motion.aside>
   );
 };
+

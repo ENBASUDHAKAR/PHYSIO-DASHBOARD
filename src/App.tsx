@@ -17,6 +17,7 @@ const Schedule = lazy(() => import('./pages/Schedule'));
 const Packages = lazy(() => import('./pages/Packages'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Notifications = lazy(() => import('./pages/Notifications'));
+const DoctorProfile = lazy(() => import('./pages/DoctorProfile'));
 
 // Protected Route wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -56,6 +57,7 @@ const AppRoutes: React.FC = () => {
             <Route path="packages" element={<Packages />} />
             <Route path="reports" element={<Reports />} />
             <Route path="notifications" element={<Notifications />} />
+            <Route path="profile" element={<DoctorProfile />} />
           </Route>
 
           {/* Catch-all */}

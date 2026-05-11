@@ -1,95 +1,181 @@
-import React, { useState, useRef } from 'react';
-import { Upload, FileText, Trash2, Download, Eye, X } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Upload, FileText, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { PatientReport } from '../../types';
-import { formatDate } from '../../utils/formatters';
-import { Badge } from '../ui/Badge';
-import { Button } from '../ui/Button';
-import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { motion } from 'framer-motion';
 
 interface ReportUploaderProps {
   patientId: string;
 }
 
-const fileTypeLabels: Record<string, string> = {
-  xray: 'X-Ray', mri: 'MRI', prescription: 'Prescription', other: 'Other',
-};
-
 export const ReportUploader: React.FC<ReportUploaderProps> = ({ patientId }) => {
-  const qc = useQueryClient();
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [fileType, setFileType] = useState('other');
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
-  const { data: reports, isLoading } = useQuery({
-    queryKey: ['reports', patientId],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('patient_reports').select('*').eq('patient_id', patientId).order('uploaded_at', { ascending: false });
-      if (error) throw error;
-      return data as PatientReport[];
-    },
-  });
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const fileName = `${patientId}/${Date.now()}_${file.name}`;
-      const { error: upErr } = await supabase.storage.from('patient-reports').upload(fileName, file);
-      if (upErr) throw upErr;
-      const { data: urlData } = supabase.storage.from('patient-reports').getPublicUrl(fileName);
-      await supabase.from('patient_reports').insert({ patient_id: patientId, file_name: file.name, file_url: urlData.publicUrl, file_type: fileType, notes: null });
-      qc.invalidateQueries({ queryKey: ['reports', patientId] });
-      toast.success('Report uploaded');
-    } catch (err: any) { toast.error(err.message || 'Upload failed'); }
-    finally { setUploading(false); if (fileRef.current) fileRef.current.value = ''; }
+  const detectFileType = (file: File): string => {
+    if (file.type === 'application/pdf') return 'prescription';
+    if (file.type.startsWith('image/')) return 'xray';
+    if (file.name.endsWith('.doc') || file.name.endsWith('.docx')) return 'other';
+    return 'other';
   };
 
-  const delMut = useMutation({
-    mutationFn: async (id: string) => {
-      const r = reports?.find((x) => x.id === id);
-      if (r) { const p = r.file_url.split('/patient-reports/')[1]; if (p) await supabase.storage.from('patient-reports').remove([p]); }
-      const { error } = await supabase.from('patient_reports').delete().eq('id', id);
-      if (error) throw error;
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['reports', patientId] }); toast.success('Deleted'); setDeleteId(null); },
-  });
+  const uploadFile = async (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size exceeds 10MB limit');
+      return;
+    }
+
+    setUploading(true);
+    setProgress(0);
+
+    try {
+      const filePath = `reports/${patientId}/${Date.now()}_${file.name}`;
+
+      // Simulate progress (Supabase JS v2 doesn't expose upload progress natively)
+      const progressInterval = setInterval(() => {
+        setProgress((prev) => Math.min(prev + 15, 85));
+      }, 200);
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('patient-reports')
+        .upload(filePath, file, { upsert: false });
+
+      clearInterval(progressInterval);
+
+      if (uploadError) throw uploadError;
+
+      setProgress(95);
+
+      // Get signed URL
+      const { data: signedData, error: signedError } = await supabase.storage
+        .from('patient-reports')
+        .createSignedUrl(filePath, 60 * 60 * 24 * 7); // 7 days
+
+      if (signedError) throw signedError;
+
+      // Insert into patient_reports table
+      const { error: dbError } = await supabase
+        .from('patient_reports')
+        .insert({
+          patient_id: patientId,
+          file_name: file.name,
+          file_url: signedData.signedUrl,
+          file_type: detectFileType(file),
+          storage_path: filePath,
+          notes: '',
+        });
+
+      if (dbError) throw dbError;
+
+      setProgress(100);
+
+      // Invalidate both old and new query keys for compatibility
+      await queryClient.invalidateQueries({ queryKey: ['patient-reports', patientId] });
+      await queryClient.invalidateQueries({ queryKey: ['reports', patientId] });
+      toast.success(`"${file.name}" uploaded successfully!`);
+
+      setTimeout(() => {
+        setProgress(0);
+        setUploading(false);
+      }, 1000);
+    } catch (err: any) {
+      toast.error(`Upload failed: ${err.message || 'Unknown error'}`);
+      setUploading(false);
+      setProgress(0);
+    }
+  };
+
+  const handleFiles = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    uploadFile(files[0]);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFiles(e.dataTransfer.files);
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <select value={fileType} onChange={(e) => setFileType(e.target.value)} className="input-field w-auto text-sm">
-          {Object.entries(fileTypeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-        <input ref={fileRef} type="file" onChange={handleUpload} className="hidden" accept="image/*,.pdf,.doc,.docx" />
-        <Button icon={<Upload className="w-4 h-4" />} onClick={() => fileRef.current?.click()} loading={uploading} size="sm">Upload</Button>
-      </div>
-      {isLoading ? <div className="animate-pulse h-14 bg-elevated rounded-xl" /> : !reports?.length ? (
-        <div className="text-center py-8"><FileText className="w-10 h-10 mx-auto text-text-muted/20 mb-2" /><p className="text-sm text-text-muted">No reports yet</p></div>
-      ) : (
-        <div className="space-y-2">
-          {reports.map((r, i) => (
-            <motion.div key={r.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }} className="flex items-center gap-3 p-3 bg-base rounded-xl border border-border">
-              <div className="w-10 h-10 rounded-lg bg-accent-teal/10 flex items-center justify-center"><FileText className="w-5 h-5 text-accent-teal" /></div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{r.file_name}</p>
-                <div className="flex items-center gap-2 mt-0.5"><Badge variant="teal">{fileTypeLabels[r.file_type || 'other']}</Badge><span className="text-[10px] text-text-muted">{formatDate(r.uploaded_at)}</span></div>
+    <div className="space-y-3">
+      <motion.div
+        className={`
+          relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer
+          transition-colors duration-200
+          ${isDragging
+            ? 'border-accent-teal bg-accent-teal/10'
+            : 'border-border hover:border-accent-teal/60 hover:bg-accent-teal/5'
+          }
+        `}
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.99 }}
+        onClick={() => !uploading && fileInputRef.current?.click()}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept="image/*,.pdf,.doc,.docx"
+          onChange={(e) => handleFiles(e.target.files)}
+          disabled={uploading}
+        />
+
+        <AnimatePresence mode="wait">
+          {uploading ? (
+            <motion.div
+              key="uploading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-3"
+            >
+              <div className="flex items-center justify-center gap-2 text-accent-teal">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                >
+                  <Upload className="w-6 h-6" />
+                </motion.div>
+                <span className="text-sm font-medium">Uploading... {progress}%</span>
               </div>
-              <div className="flex items-center gap-1">
-                <a href={r.file_url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg hover:bg-elevated text-text-muted hover:text-accent-teal"><Eye className="w-4 h-4" /></a>
-                <a href={r.file_url} download className="p-1.5 rounded-lg hover:bg-elevated text-text-muted hover:text-accent-teal"><Download className="w-4 h-4" /></a>
-                <button onClick={() => setDeleteId(r.id)} className="p-1.5 rounded-lg hover:bg-accent-rose/10 text-text-muted hover:text-accent-rose"><Trash2 className="w-4 h-4" /></button>
+              <div className="w-full bg-elevated rounded-full h-2">
+                <motion.div
+                  className="bg-accent-teal h-2 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 0.3 }}
+                />
               </div>
             </motion.div>
-          ))}
-        </div>
-      )}
-      <ConfirmDialog isOpen={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={() => deleteId && delMut.mutate(deleteId)} title="Delete Report" message="This cannot be undone." confirmText="Delete" loading={delMut.isPending} />
+          ) : (
+            <motion.div
+              key="idle"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="space-y-2"
+            >
+              <Upload className="w-8 h-8 text-text-muted mx-auto" />
+              <p className="text-sm text-text-secondary font-medium">
+                Drop file here or <span className="text-accent-teal">click to browse</span>
+              </p>
+              <p className="text-xs text-text-muted">
+                PDF, Images, Word Documents (max 10MB)
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </div>
   );
 };

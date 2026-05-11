@@ -110,3 +110,82 @@ ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
 --    INSERT: auth.role() = 'authenticated'
 --    SELECT: auth.role() = 'authenticated'
 --    DELETE: auth.role() = 'authenticated'
+
+-- ═══════════════════════════════════════════════
+-- PATCH v2 — Additional columns and tables
+-- ═══════════════════════════════════════════════
+
+-- Add storage_path column to patient_reports (for signed URL regeneration)
+ALTER TABLE patient_reports ADD COLUMN IF NOT EXISTS storage_path text;
+
+-- 6. DOCTOR PROFILE TABLE
+CREATE TABLE IF NOT EXISTS doctor_profile (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
+  full_name text DEFAULT 'Dr. Karthik',
+  qualification text DEFAULT 'BPT',
+  specialization text DEFAULT 'Physiotherapy',
+  registration_number text,
+  phone text,
+  email text,
+  clinic_name text DEFAULT 'Sri Kavitha Physiotherapy',
+  clinic_address text,
+  clinic_phone text,
+  experience_years integer,
+  about text,
+  photo_url text,
+  photo_storage_path text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE doctor_profile ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Doctor can manage own profile"
+  ON doctor_profile FOR ALL
+  TO authenticated
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+-- ═══════════════════════════════════════════════
+-- STORAGE BUCKET SQL (run in Supabase SQL Editor)
+-- ═══════════════════════════════════════════════
+
+-- INSERT INTO storage.buckets (id, name, public)
+-- VALUES ('patient-reports', 'patient-reports', false)
+-- ON CONFLICT (id) DO NOTHING;
+
+-- CREATE POLICY "Authenticated users can upload reports"
+--   ON storage.objects FOR INSERT
+--   TO authenticated
+--   WITH CHECK (bucket_id = 'patient-reports');
+
+-- CREATE POLICY "Authenticated users can read reports"
+--   ON storage.objects FOR SELECT
+--   TO authenticated
+--   USING (bucket_id = 'patient-reports');
+
+-- CREATE POLICY "Authenticated users can delete reports"
+--   ON storage.objects FOR DELETE
+--   TO authenticated
+--   USING (bucket_id = 'patient-reports');
+
+-- Doctor photo storage bucket
+-- INSERT INTO storage.buckets (id, name, public)
+-- VALUES ('doctor-assets', 'doctor-assets', false)
+-- ON CONFLICT (id) DO NOTHING;
+
+-- CREATE POLICY "Doctor uploads own photo"
+--   ON storage.objects FOR INSERT
+--   TO authenticated
+--   WITH CHECK (bucket_id = 'doctor-assets');
+
+-- CREATE POLICY "Doctor reads own photo"
+--   ON storage.objects FOR SELECT
+--   TO authenticated
+--   USING (bucket_id = 'doctor-assets');
+
+-- CREATE POLICY "Doctor updates own photo"
+--   ON storage.objects FOR UPDATE
+--   TO authenticated
+--   USING (bucket_id = 'doctor-assets');

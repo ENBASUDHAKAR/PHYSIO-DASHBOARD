@@ -74,11 +74,35 @@ export interface PatientReport {
   file_type: 'xray' | 'mri' | 'prescription' | 'other' | null;
   uploaded_at: string;
   notes: string | null;
+  storage_path: string | null;
   // Joined
   patient?: Patient;
 }
 
 export type PatientReportInsert = Omit<PatientReport, 'id' | 'uploaded_at' | 'patient'>;
+
+// ─── Doctor Profile ────────────────────────────────
+export interface DoctorProfile {
+  id: string;
+  user_id: string;
+  full_name: string;
+  qualification: string;
+  specialization: string;
+  registration_number: string | null;
+  phone: string | null;
+  email: string | null;
+  clinic_name: string | null;
+  clinic_address: string | null;
+  clinic_phone: string | null;
+  experience_years: number | null;
+  about: string | null;
+  photo_url: string | null;
+  photo_storage_path: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DoctorProfileUpdate = Partial<Omit<DoctorProfile, 'id' | 'user_id' | 'created_at'>>;
 
 // ─── Notification ──────────────────────────────────
 export interface Notification {

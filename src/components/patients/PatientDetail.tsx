@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Edit, Phone, MapPin, Building2, Home, Stethoscope, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Phone, MapPin, Building2, Home, Stethoscope, Plus, Trash2, FileText, Eye, Download, Image as ImageIcon } from 'lucide-react';
 import { usePatient, useDeletePatient } from '../../hooks/usePatients';
 import { usePatientSessions } from '../../hooks/useSessions';
 import { usePatientPackages } from '../../hooks/usePackages';
@@ -10,11 +10,13 @@ import { SessionProgress } from '../sessions/SessionProgress';
 import { SessionForm } from '../sessions/SessionForm';
 import { PackageForm } from '../packages/PackageForm';
 import { ReportUploader } from './ReportUploader';
+import { usePatientReports, useDeleteReport, getReportViewUrl } from '../../hooks/usePatientReports';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { PageLoader } from '../ui/Spinner';
 import { formatDate, formatTime, formatPhone, formatCurrency, getPainScoreColor, getStatusColor } from '../../utils/formatters';
+import toast from 'react-hot-toast';
 
 export const PatientDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -28,7 +30,12 @@ export const PatientDetail: React.FC = () => {
   const [sessionFormOpen, setSessionFormOpen] = useState(false);
   const [packageFormOpen, setPackageFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [reportDeleteId, setReportDeleteId] = useState<string | null>(null);
+  const [reportDeletePath, setReportDeletePath] = useState<string>('');
   const [tab, setTab] = useState<'sessions' | 'reports' | 'notes'>('sessions');
+
+  const { data: reports, isLoading: reportsLoading } = usePatientReports(id!);
+  const deleteReport = useDeleteReport();
 
   if (isLoading) return <PageLoader />;
   if (!patient) return <div className="text-center py-16 text-text-muted">Patient not found</div>;
@@ -140,7 +147,82 @@ export const PatientDetail: React.FC = () => {
         </div>
       )}
 
-      {tab === 'reports' && <div className="glass-card p-6"><ReportUploader patientId={id!} /></div>}
+      {tab === 'reports' && (
+        <div className="glass-card p-6 space-y-5">
+          <ReportUploader patientId={id!} />
+
+          {/* Reports List */}
+          {reportsLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="animate-pulse h-16 bg-elevated rounded-xl" />
+              ))}
+            </div>
+          ) : !reports?.length ? (
+            <div className="text-center py-10">
+              <FileText className="w-12 h-12 mx-auto text-text-muted/20 mb-3" />
+              <p className="text-sm text-text-muted font-medium">No reports uploaded yet</p>
+              <p className="text-xs text-text-muted/60 mt-1">Upload X-rays, prescriptions, or documents above</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Uploaded Reports ({reports.length})</h4>
+              {reports.map((r, i) => (
+                <motion.div
+                  key={r.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="flex items-center gap-3 p-3 bg-base rounded-xl border border-border hover:border-accent-teal/30 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-accent-teal/10 flex items-center justify-center flex-shrink-0">
+                    {r.file_type === 'xray' ? (
+                      <ImageIcon className="w-5 h-5 text-accent-teal" />
+                    ) : (
+                      <FileText className="w-5 h-5 text-accent-teal" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{r.file_name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <Badge variant="teal">{r.file_type === 'prescription' ? 'Prescription' : r.file_type === 'xray' ? 'X-Ray' : r.file_type === 'mri' ? 'MRI' : 'Other'}</Badge>
+                      <span className="text-[10px] text-text-muted">{formatDate(r.uploaded_at)}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={async () => {
+                        const path = r.storage_path || r.file_url.split('/patient-reports/')[1];
+                        if (path) {
+                          const url = await getReportViewUrl(path);
+                          if (url) window.open(url, '_blank');
+                          else toast.error('Could not generate view URL');
+                        } else {
+                          window.open(r.file_url, '_blank');
+                        }
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-elevated text-text-muted hover:text-accent-teal transition-colors"
+                      title="View"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setReportDeleteId(r.id);
+                        setReportDeletePath(r.storage_path || '');
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-accent-rose/10 text-text-muted hover:text-accent-rose transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {tab === 'notes' && <div className="glass-card p-6"><p className="text-sm text-text-muted whitespace-pre-wrap">{patient.notes || 'No notes added.'}</p>{patient.referred_by && <p className="text-sm mt-4"><span className="text-text-muted">Referred by:</span> {patient.referred_by}</p>}</div>}
 
       {/* Modals */}
@@ -148,6 +230,7 @@ export const PatientDetail: React.FC = () => {
       <SessionForm isOpen={sessionFormOpen} onClose={() => setSessionFormOpen(false)} preselectedPatientId={id} />
       <PackageForm isOpen={packageFormOpen} onClose={() => setPackageFormOpen(false)} preselectedPatientId={id} />
       <ConfirmDialog isOpen={deleteOpen} onClose={() => setDeleteOpen(false)} onConfirm={() => { deletePatient.mutate(id!); navigate('/patients'); }} title="Delete Patient" message={`Delete ${patient.name}? All sessions and packages will also be deleted.`} confirmText="Delete" loading={deletePatient.isPending} />
+      <ConfirmDialog isOpen={!!reportDeleteId} onClose={() => setReportDeleteId(null)} onConfirm={() => reportDeleteId && deleteReport.mutate({ reportId: reportDeleteId, filePath: reportDeletePath, patientId: id! }, { onSuccess: () => setReportDeleteId(null) })} title="Delete Report" message="This report will be permanently deleted. This cannot be undone." confirmText="Delete" loading={deleteReport.isPending} />
     </motion.div>
   );
 };
