@@ -55,14 +55,14 @@ function PhysioImageStrip() {
   ]
 
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-3 gap-2 md:gap-3">
       {images.map(({ url, label }, i) => (
         <motion.div
           key={label}
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2 + i * 0.1 }}
-          className="relative rounded-xl overflow-hidden h-28 border border-slate-700/40 group"
+          className="relative rounded-xl overflow-hidden h-20 md:h-28 border border-slate-700/40 group"
         >
           <img
             src={url}

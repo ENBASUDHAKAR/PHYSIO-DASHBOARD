@@ -7,6 +7,7 @@ import { queryClient } from './lib/queryClient';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import { PageLoader } from './components/ui/Spinner';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Lazy-loaded pages
 const Login = lazy(() => import('./pages/Login'));
@@ -70,6 +71,7 @@ const AppRoutes: React.FC = () => {
 
 const App: React.FC = () => {
   return (
+    <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
@@ -96,6 +98,7 @@ const App: React.FC = () => {
         </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 
